@@ -65,7 +65,7 @@ func TestCookieHandler_THISWORKS(t *testing.T) {
 	}
 
 	for i, tt := range testTable {
-		// DO NOT REMOVE THIS! (https://gist.github.com/posener/92a55c4cd441fc5e5e85f27bca008721)
+		// DO NOT REMOVE THIS!
 		// need to create a local copy of the tt for the closure below because running tests in parallel
 		tt := tt
 
