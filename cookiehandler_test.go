@@ -2,12 +2,29 @@ package cookies
 
 import (
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 )
 
-func TestCookieHandler_THISDOESNOTWORK(t *testing.T) {
+func TestCookieHandler(t *testing.T) {
+	setHandler := func(name, value string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookieHandler := &CookieHandler{}
+			cookieHandler.Set(w, name, value)
+		}
+	}
+	getHandler := func(t *testing.T, name, want string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookieHandler := &CookieHandler{}
+			got := cookieHandler.Get(r, name)
+			if got != want {
+				t.Errorf("Cookie = %v; want %v", got, want)
+			}
+		}
+	}
+
 	var testTable = []struct {
 		cookieName  string
 		cookieValue string
@@ -16,77 +33,33 @@ func TestCookieHandler_THISDOESNOTWORK(t *testing.T) {
 			cookieName:  "test",
 			cookieValue: "testvalue",
 		},
-	}
-
-	for i, tt := range testTable {
-		cookieHandler := &CookieHandler{}
-		w := httptest.NewRecorder()
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			cookieHandler.SetCookieHandler(w, tt.cookieName, tt.cookieValue)
-			req := &http.Request{Header: w.Header()}
-
-			got := cookieHandler.ReadCookieHandler(req, tt.cookieName)
-
-			if got != tt.cookieValue {
-				t.Errorf("cookieHandler.ReadCookieHandler(req, tt.cookieName) got = %s; want = %s", got, tt.cookieValue)
-			}
-		})
-	}
-}
-
-func TestCookieHandler_THISWORKS(t *testing.T) {
-	var testTable = []struct {
-		cookies []http.Cookie
-	}{
 		{
-			cookies: []http.Cookie{
-				{
-					Name:  "test",
-					Value: "testvalue",
-				},
-			},
-		},
-		{
-			cookies: []http.Cookie{
-				{
-					Name:  "test1",
-					Value: "testvalue1",
-				},
-				{
-					Name:  "test2",
-					Value: "testvalue2",
-				},
-				{
-					Name:  "test3",
-					Value: "testvalue3",
-				},
-			},
+			cookieName:  "dog",
+			cookieValue: "cat",
 		},
 	}
-
 	for i, tt := range testTable {
-		// DO NOT REMOVE THIS!
-		// need to create a local copy of the tt for the closure below because running tests in parallel
-		tt := tt
-
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			t.Parallel()
-			cookieHandler := &CookieHandler{}
-			w := httptest.NewRecorder()
-			// add all the cookies
-			for _, c := range tt.cookies {
-				cookieHandler.SetCookieHandler(w, c.Name, c.Value)
-			}
+			mux := http.NewServeMux()
+			mux.Handle("/set", setHandler(tt.cookieName, tt.cookieValue))
+			mux.Handle("/get", getHandler(t, tt.cookieName, tt.cookieValue))
+			server := httptest.NewServer(mux)
+			defer server.Close()
 
-			// fetch all the cookies and verify the values are expected
-			for _, c := range tt.cookies {
-				want := c.Value
-				// Do cookies move to "Cookie" header key when redirecting?
-				req := &http.Request{Header: http.Header{"Cookie": w.Header()["Set-Cookie"]}}
-				got := cookieHandler.ReadCookieHandler(req, c.Name)
-				if got != want {
-					t.Errorf("cookieHandler.ReadCookieHandler(req, tt.cookieName) got = %s; want = %s", got, want)
-				}
+			jar, err := cookiejar.New(nil)
+			if err != nil {
+				t.Fatalf("cookiejar.New() err = %v; want %v", err, nil)
+			}
+			client := http.Client{
+				Jar: jar,
+			}
+			_, err = client.Get(server.URL + "/set")
+			if err != nil {
+				t.Fatalf("Get() err = %v; want %v", err, nil)
+			}
+			_, err = client.Get(server.URL + "/get")
+			if err != nil {
+				t.Fatalf("Get() err = %v; want %v", err, nil)
 			}
 		})
 	}

@@ -16,7 +16,7 @@ var (
 
 type CookieHandler struct{}
 
-func (c CookieHandler) SetCookieHandler(w http.ResponseWriter, name, value string) {
+func (c CookieHandler) Set(w http.ResponseWriter, name, value string) {
 	if encoded, err := sc.Encode(name, value); err == nil {
 		c := &http.Cookie{
 			Name:  name,
@@ -29,7 +29,7 @@ func (c CookieHandler) SetCookieHandler(w http.ResponseWriter, name, value strin
 	}
 }
 
-func (c CookieHandler) ReadCookieHandler(r *http.Request, name string) string {
+func (c CookieHandler) Get(r *http.Request, name string) string {
 	var value string
 	if c, err := r.Cookie(name); err == nil {
 		_ = sc.Decode(name, c.Value, &value)
